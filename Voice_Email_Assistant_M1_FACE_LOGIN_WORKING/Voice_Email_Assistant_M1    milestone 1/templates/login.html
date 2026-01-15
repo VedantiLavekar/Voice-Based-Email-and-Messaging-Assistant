@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Gmail Assistant - Login</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body class="auth-page">
+
+<div class="auth-card">
+    <h2>Voice Gmail Assistant</h2>
+
+    <button class="google-btn" onclick="window.location.href='/login/google'">
+        🔐 Login with Google
+    </button>
+
+    <hr style="margin:15px 0; border-color:#1e293b">
+
+    <input id="email" type="email" placeholder="Email">
+
+    <div class="password-box">
+        <input id="password" type="password" placeholder="Password">
+        <span onclick="togglePassword()">👁️</span>
+    </div>
+
+    <button class="primary-btn" onclick="loginWithFace()">
+        Login with Face
+    </button>
+ 
+
+    <button class="primary-btn" onclick="startVoiceLogin()" style="margin-top:10px;">
+    🎙️ Login by Voice
+</button>
+
+    <video id="video" width="260" height="200" autoplay playsinline
+        style="display:none; margin-top:10px; border-radius:10px;"></video>
+    <canvas id="canvas" width="260" height="200" style="display:none;"></canvas>
+
+    <p id="faceStatus" style="margin-top:10px; font-size:14px;"></p>
+
+    <button class="primary-btn" onclick="loginWithPassword()">
+        Login
+    </button>
+
+    <button class="secondary" onclick="location.href='/register'">
+        Register with Face
+    </button>
+</div>
+
+<script>
+let faceLoginInProgress = false;
+
+document.addEventListener("keydown", e => {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function togglePassword() {
+    const pwd = document.getElementById("password");
+    pwd.type = pwd.type === "password" ? "text" : "password";
+}
+
+function loginWithPassword() {
+    if (faceLoginInProgress) return;
+
+    fetch("/api/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            email: email.value,
+            password: password.value
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) window.location.href = "/dashboard";
+        else alert(d.message);
+    });
+}
+
+async function loginWithFace() {
+    faceLoginInProgress = true;
+
+    const status = document.getElementById("faceStatus");
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    status.innerText = "Opening camera...";
+    status.style.color = "white";
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch {
+        status.innerText = "Camera permission denied";
+        status.style.color = "red";
+        faceLoginInProgress = false;
+        return;
+    }
+
+    video.srcObject = stream;
+    video.style.display = "block";
+
+    setTimeout(async () => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/jpeg");
+
+        stream.getTracks().forEach(t => t.stop());
+        video.style.display = "none";
+
+        status.innerText = "Verifying face...";
+
+        try {
+            const res = await fetch("/api/face-login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ image: imageData })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                status.innerText = "Face verified ✔ Login successful";
+                status.style.color = "lightgreen";
+                setTimeout(() => window.location.href = "/dashboard", 1000);
+            } else {
+                status.innerText = data.message;
+                status.style.color = "red";
+                faceLoginInProgress = false;
+            }
+        } catch {
+            status.innerText = "Cannot reach backend";
+            status.style.color = "red";
+            faceLoginInProgress = false;
+        }
+    }, 2000);
+}
+
+
+
+
+
+
+
+/* ---------- VOICE LOGIN ---------- */
+function startVoiceLogin() {
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = "en-US";
+
+    recognition.onresult = async function (event) {
+        const command = event.results[0][0].transcript.toLowerCase();
+        console.log("Voice:", command);
+
+        const res = await fetch("/api/voice-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command })
+        });
+
+        const data = await res.json();
+
+        if (data.action === "google") {
+            window.location.href = "/login/google";
+        }
+        else if (data.action === "face") {
+            loginWithFace(); // 🔥 existing function
+        }
+        else {
+            alert("Voice command not recognized");
+        }
+    };
+
+    recognition.start();
+}
+</script>
+
+</body>
+</html>
