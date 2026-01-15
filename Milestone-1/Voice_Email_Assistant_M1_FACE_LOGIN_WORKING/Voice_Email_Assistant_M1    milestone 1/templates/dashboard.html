@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Email Assistant - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+
+<div class="dashboard-container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>🎙 Voice Assistant</h2>
+        <button onclick="openSection('inbox')">Inbox</button>
+        <button onclick="openSection('sent')">Sent</button>
+        <button onclick="openSection('trash')">Trash</button>
+        <button onclick="openSection('compose')">Compose</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-content">
+
+        <div class="voice-card">
+            <h3>🎤 Voice Assistant</h3>
+
+            <!-- ONLY ONE BUTTON (IMPORTANT) -->
+            <button id="enableVoiceBtn" onclick="enableVoice()">
+                🎧 Enable Voice Assistant
+            </button>
+
+            <div class="voice-actions" style="margin-top:10px;">
+                <button onclick="startListening()">🎙 Start Listening</button>
+                <button onclick="stopListening()">⏹ Stop</button>
+            </div>
+
+            <div class="box">
+                <strong>Recognized:</strong>
+                <span id="recognizedText">—</span>
+            </div>
+
+            <div class="box">
+                <strong>Assistant:</strong>
+                <span id="assistantText">—</span>
+            </div>
+        </div>
+
+        <div class="content-panel">
+            <h3 id="sectionTitle">Inbox</h3>
+            <p id="sectionContent">No emails (Milestone-1 demo)</p>
+        </div>
+
+    </div>
+</div>
+
+<script>
+let recognition;
+let voiceEnabled = false;
+
+/* ---------- ENABLE VOICE (CRITICAL) ---------- */
+function enableVoice() {
+    if (voiceEnabled) return;
+
+    voiceEnabled = true;
+
+    const msg = "Voice assistant enabled. You can now give commands.";
+    speak(msg);
+    document.getElementById("assistantText").innerText = msg;
+}
+
+/* ---------- TEXT TO SPEECH ---------- */
+function speak(text) {
+    if (!voiceEnabled) return;
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1;
+    utter.pitch = 1;
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+}
+
+/* ---------- SPEECH RECOGNITION ---------- */
+function startListening() {
+    if (!('webkitSpeechRecognition' in window)) {
+        alert("Speech recognition not supported");
+        return;
+    }
+
+    recognition = new webkitSpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = function (event) {
+        const command = event.results[0][0].transcript
+            .toLowerCase()
+            .replace(".", "")
+            .replace(",", "")
+            .trim();
+
+        document.getElementById("recognizedText").innerText = command;
+
+        fetch("/api/voice-command", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("assistantText").innerText = data.response;
+            speak(data.response);
+
+            if (data.action === "logout") {
+                window.location.href = "/logout";
+            }
+        })
+        .catch(() => {
+            speak("Error processing command");
+        });
+    };
+
+    recognition.start();
+}
+
+function stopListening() {
+    if (recognition) recognition.stop();
+}
+
+/* ---------- UI ---------- */
+function openSection(section) {
+    const title = document.getElementById("sectionTitle");
+    const content = document.getElementById("sectionContent");
+
+    if (section === "inbox") {
+        title.innerText = "Inbox";
+        content.innerText = "No emails (Milestone-1 demo)";
+    }
+    if (section === "sent") {
+        title.innerText = "Sent";
+        content.innerText = "No sent emails";
+    }
+    if (section === "trash") {
+        title.innerText = "Trash";
+        content.innerText = "Trash empty";
+    }
+    if (section === "compose") {
+        title.innerText = "Compose";
+        content.innerText = "Compose feature – Milestone-2";
+    }
+}
+
+function logout() {
+    window.location.href = "/logout";
+}
+</script>
+
+</body>
+</html>
