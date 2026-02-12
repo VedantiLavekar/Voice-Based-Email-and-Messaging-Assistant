@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Gmail Assistant - Login</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body class="auth-page">
+
+<div class="auth-card">
+  <h2>🎙 Voice Gmail Assistant</h2>
+  <p id="statusMsg" style="margin:10px 0; color:#38bdf8;"></p>
+
+  <button id="googleLoginBtn" class="google-btn"
+          onclick="window.location.href='/login/google'">
+    🔐 Login with Google
+  </button>
+
+  <input id="email" type="email" placeholder="Email">
+
+  <div class="password-box">
+    <input id="password" type="password" placeholder="Password">
+    <span onclick="togglePassword()">👁️</span>
+  </div>
+
+  <button class="primary-btn" onclick="loginWithFace()">Login with Face</button>
+
+  <video id="video" width="260" height="200" autoplay playsinline
+         style="display:none; margin-top:10px; border-radius:10px;"></video>
+  <canvas id="canvas" width="260" height="200" style="display:none;"></canvas>
+
+  <button class="primary-btn" onclick="loginWithPassword()">Login</button>
+  <button class="secondary" onclick="location.href='/register'">Register</button>
+</div>
+
+<script>
+/* ================= GLOBAL STATE ================= */
+let recognition;
+let state = "idle";
+let tempEmail = "";
+let tempImage = "";
+
+/* ================= UI HELPERS ================= */
+function showMsg(msg, color="#38bdf8") {
+  statusMsg.innerText = msg;
+  statusMsg.style.color = color;
+}
+
+function togglePassword() {
+  password.type = password.type === "password" ? "text" : "password";
+}
+
+/* ================= SPEAK ================= */
+function speak(text, cb) {
+  if (recognition) recognition.stop();
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-IN";
+  u.onend = () => cb && cb();
+  speechSynthesis.speak(u);
+}
+
+/* ================= LISTEN ================= */
+function startListening() {
+  const API = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new API();
+  recognition.lang = "en-IN";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onresult = e => {
+    const text = e.results[0][0].transcript.toLowerCase().trim();
+    console.log("USER:", text);
+    handleVoice(text);
+  };
+
+  recognition.start();
+}
+
+/* ================= VOICE HANDLER ================= */
+function handleVoice(text) {
+
+  /* 🔥 TELEGRAM INTEGRATION (LIKE GMAIL) */
+  if (text.includes("telegram")) {
+    fetch("/api/compose/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("TELEGRAM:", data);
+      speak(data.reply || "Telegram command executed");
+    })
+    .catch(() => {
+      speak("Unable to open Telegram");
+    });
+    return;
+  }
+
+  /* GOOGLE LOGIN */
+  if (text.includes("google")) {
+    speak("Logging in with Google", () => googleLoginBtn.click());
+    return;
+  }
+
+  /* IDLE */
+  if (state === "idle") {
+    if (text.includes("register")) {
+      state = "reg_email";
+      speak("Please say your email id", startListening);
+      return;
+    }
+
+    if (text.includes("login")) {
+      state = "login_face";
+      speak("Look at the camera", captureFace);
+      return;
+    }
+
+    speak("Say login, register, or login with google", startListening);
+    return;
+  }
+
+  /* REGISTER EMAIL */
+  if (state === "reg_email") {
+    tempEmail = text
+      .replace(/\s+/g,"")
+      .replace("at","@")
+      .replace("dot",".");
+
+    email.value = tempEmail;
+    state = "reg_email_confirm";
+    speak("Is this email correct? Say yes or no", startListening);
+    return;
+  }
+
+  /* EMAIL CONFIRM */
+  if (state === "reg_email_confirm") {
+    if (text.includes("yes")) {
+      state = "reg_face";
+      speak("Look at the camera", captureFace);
+      return;
+    }
+
+    if (text.includes("no")) {
+      state = "reg_email";
+      speak("Please say the email again", startListening);
+      return;
+    }
+
+    speak("Please say yes or no", startListening);
+    return;
+  }
+
+  /* REGISTER PIN */
+  if (state === "reg_pin") {
+    const pin = text.replace(/\D/g,"").slice(0,4);
+
+    fetch("/api/voice-register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: tempEmail,
+        password: "voice",
+        pin: pin
+      })
+    })
+    .then(r => r.json())
+    .then(d => {
+      showMsg(d.message, d.success ? "lightgreen" : "red");
+      speak(d.message, () => {
+        state = "idle";
+        startListening();
+      });
+    });
+
+    return;
+  }
+
+  /* LOGIN PIN */
+  if (state === "login_pin") {
+    const pin = text.replace(/\D/g,"").slice(0,4);
+
+    fetch("/api/face-pin-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pin: pin,
+        image: tempImage
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("LOGIN:", data);
+
+      if (data.success) {
+        window.location.href = data.redirect;
+      } else {
+        speak(data.message, () => startListening());
+      }
+    })
+    .catch(() => {
+      speak("Login failed. Please try again.", () => startListening());
+    });
+
+    return;
+  }
+}
+
+/* ================= CAMERA ================= */
+function captureFace() {
+  navigator.mediaDevices.getUserMedia({ video:true }).then(stream => {
+    video.srcObject = stream;
+    video.style.display = "block";
+
+    setTimeout(() => {
+      canvas.getContext("2d").drawImage(video, 0, 0, 260, 200);
+      tempImage = canvas.toDataURL("image/jpeg");
+      stream.getTracks().forEach(t => t.stop());
+      video.style.display = "none";
+
+      if (state === "login_face") {
+        state = "login_pin";
+        speak("Say your four digit pin", startListening);
+      }
+
+      if (state === "reg_face") {
+        state = "reg_pin";
+        speak("Say your four digit pin", startListening);
+      }
+    }, 2000);
+  });
+}
+
+/* ================= START ================= */
+window.onload = () => {
+  speak("Say login, register, or login with google", startListening);
+};
+</script>
+
+</body>
+</html>

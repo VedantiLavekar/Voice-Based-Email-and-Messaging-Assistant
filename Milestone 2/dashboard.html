@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Email Assistant - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+
+<div class="dashboard-container">
+
+    <!-- SIDEBAR (MILESTONE-2 – UNCHANGED) -->
+    <div class="sidebar">
+        <h2>🎙 Voice Assistant</h2>
+        <button onclick="openSection('inbox')">Inbox</button>
+        <button onclick="openSection('sent')">Sent</button>
+        <button onclick="openSection('trash')">Trash</button>
+        <button onclick="openSection('compose')">Compose</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-content">
+
+        <!-- VOICE CARD (MILESTONE-2 – UNCHANGED) -->
+        <div class="voice-card">
+            <h3>🎤 Voice Assistant</h3>
+
+
+            <div class="box">
+                <strong>Status:</strong>
+                <span id="voiceStatus">Idle</span>
+            </div>
+
+            <div class="box">
+                <strong>Recognized:</strong>
+                <span id="recognizedText">—</span>
+            </div>
+
+            <div class="box">
+                <strong>Assistant:</strong>
+                <span id="assistantText">—</span>
+            </div>
+        </div>
+
+        <!-- CONTENT PANEL -->
+        <div class="content-panel">
+            <h3 id="sectionTitle">Inbox</h3>
+            <p id="sectionContent" class="empty-state">
+                No emails (Milestone-2 demo)
+            </p>
+
+
+
+            <button onclick="loadTelegram()">📨 Telegram Messages</button>
+<div id="telegramBox"></div>
+
+        </div>
+
+    </div>
+</div>
+
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/speech_recognition.js"></script>
+
+</body>
+</html>

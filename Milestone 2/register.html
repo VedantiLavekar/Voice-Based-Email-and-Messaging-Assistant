@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Account</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+    <h2>Create Account</h2>
+
+    <input id="email" type="email" placeholder="Email ID" required>
+
+    <div class="password-box">
+        <input id="password" type="password" placeholder="Password" required>
+        <span onclick="togglePassword()">👁️</span>
+    </div>
+
+    <div class="camera-box">
+        <video id="video" autoplay playsinline></video>
+        <img id="capturedImage" style="display:none;">
+        <canvas id="canvas" hidden></canvas>
+    </div>
+
+    <button id="captureBtn" type="button" onclick="captureFace()">
+        📸 Capture Face (One Time)
+    </button>
+
+    <button id="registerBtn">Register</button>
+
+    <button class="secondary" onclick="location.href='/login'">Back to Login</button>
+</div>
+
+<script>
+window.onload=()=>{
+  speechSynthesis.speak(
+    new SpeechSynthesisUtterance(
+      "Please fill details and capture your face to complete registration"
+    )
+  );
+};
+</script>
+
+<script src="/static/js/auth.js"></script>
+</body>
+</html>

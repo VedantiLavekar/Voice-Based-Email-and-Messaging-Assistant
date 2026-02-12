@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Voice Email – Single Command</title>
+</head>
+
+<body>
+
+<h2>🎤 Voice Email (Single Command Mode)</h2>
+
+<p>
+Speak like:<br>
+<b>
+send email to abc at gmail dot com subject test message hello
+</b>
+</p>
+
+<button onclick="recordAndSendOnce()">🎤 Speak Email Command</button>
+
+<p id="status"></p>
+
+<script>
+async function recordAndSendOnce() {
+  document.getElementById("status").innerText = "Listening...";
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+  let chunks = [];
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    const fd = new FormData();
+    fd.append("audio", blob);
+
+    document.getElementById("status").innerText = "Processing...";
+
+    const res = await fetch("/api/compose/voice-single", {
+      method: "POST",
+      body: fd
+    });
+
+    const data = await res.json();
+
+    document.getElementById("status").innerText = data.reply;
+    alert(data.reply);
+  };
+
+  recorder.start();
+  setTimeout(() => recorder.stop(), 5000); // record 5 seconds
+}
+</script>
+
+</body>
+</html>
